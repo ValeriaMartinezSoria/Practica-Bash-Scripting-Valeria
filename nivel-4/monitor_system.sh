@@ -1,79 +1,72 @@
 #!/bin/bash
 
-# --- Configuración de Límites ---
-CPU_LIMIT=80
-RAM_LIMIT=10
-DISK_LIMIT=10
+# ==========================
+#   CONFIGURACIÓN GENERAL
+# ==========================
+CPU_MAX=80
+RAM_MAX=10
+DISK_MAX=10
 
-# --- Configuración de Notificaciones ---
-WEBHOOK_URL=""
+WEBHOOK=""
+EMAIL="tu_email@gmail.com"
 
-EMAIL_TO="tu_email@gmail.com"
+LOG_ALERTS="alerts.log"
+LOG_METRICS="metrics_$(date '+%Y%m%d').log"
 
-# --- Configuración de Logs ---
-ALERT_LOG_FILE="alerts.log"
-# Histórico de Métricas
-METRICS_LOG_FILE="metrics_$(date '+%Y%m%d').log"
+# Colores
+C_RED="\033[0;31m"
+C_GREEN="\033[0;32m"
+C_NONE="\033[0m"
 
-# --- Colores ---
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-NC='\033[0m' # Sin Color
+# ==========================
+#   CAPTURA DE MÉTRICAS
+# ==========================
+CPU_NOW=$(printf "%.0f" "$(mpstat 1 1 | awk '/Average:/ {print 100 - $NF}')")
+RAM_NOW=$(free -m | awk '/Mem:/ {printf "%.0f", ($3/$2)*100}')
+DISK_NOW=$(df / | awk 'NR==2 {gsub("%","",$5); print $5}')
 
-# --- 1. Medición de Métricas ---
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+METRIC_LINE="$TIMESTAMP | CPU ${CPU_NOW}% | RAM ${RAM_NOW}% | DISK ${DISK_NOW}%"
+echo "$METRIC_LINE" >> "$LOG_METRICS"
 
-CPU_USAGE=$(printf "%.0f" $(mpstat 1 1 | awk '/Average:/ {print 100 - $NF}'))
-RAM_USAGE=$(free -m | awk '/Mem:/ {printf "%.0f", $3 / $2 * 100}')
-DISK_USAGE=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
+# ==========================
+#   VERIFICACIÓN DE LÍMITES
+# ==========================
+ALERT=""
+TRIGGER=0
 
-# --- Guardar Histórico de Métricas ---
-CURRENT_METRICS="$(date '+%Y-%m-%d %H:%M:%S') | CPU: ${CPU_USAGE}% | RAM: ${RAM_USAGE}% | DISK: ${DISK_USAGE}%"
-echo "$CURRENT_METRICS" >> "$METRICS_LOG_FILE"
+check_limit() {
+    local value=$1
+    local max=$2
+    local label=$3
 
-# --- 2. Revisar Límites y Generar Alertas ---
-
-ALERT_MESSAGE=""
-OVER_LIMIT=0
-
-# Revisar CPU
-if [ "$CPU_USAGE" -gt "$CPU_LIMIT" ]; then
-    ALERT_MESSAGE+="CPU ALTA: ${CPU_USAGE}% (Límite: ${CPU_LIMIT}%) | "
-    OVER_LIMIT=1
-fi
-
-# Revisar RAM
-if [ "$RAM_USAGE" -gt "$RAM_LIMIT" ]; then
-    ALERT_MESSAGE+="RAM ALTA: ${RAM_USAGE}% (Límite: ${RAM_LIMIT}%) | "
-    OVER_LIMIT=1
-fi
-
-# Revisar Disco
-if [ "$DISK_USAGE" -gt "$DISK_LIMIT" ]; then
-    ALERT_MESSAGE+="DISCO ALTO: ${DISK_USAGE}% (Límite: ${DISK_LIMIT}%)"
-    OVER_LIMIT=1
-fi
-
-# --- 3. Enviar Alertas y Mostrar Estado ---
-
-if [ $OVER_LIMIT -eq 1 ]; then
-    echo -e "${RED}ALERTA: $ALERT_MESSAGE${NC}"
-    
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - ALERTA: $ALERT_MESSAGE" >> "$ALERT_LOG_FILE"
-    
-    # --- 3. Enviar Notificación (Bonus/Requisito 3) ---
-    
-    if [ -n "$WEBHOOK_URL" ]; then
-        curl -X POST -H 'Content-type: application/json' \
-        --data "{\"content\":\"🚨 **ALERTA DE SERVIDOR:** $ALERT_MESSAGE\"}" \
-        "$WEBHOOK_URL"
+    if [ "$value" -gt "$max" ]; then
+        ALERT+="$label: ${value}% (Límite ${max}%) | "
+        TRIGGER=1
     fi
-    
-    if [ -n "$EMAIL_TO" ]; then
-        echo "ALERTA: $ALERT_MESSAGE" | mail -s "Alerta de Servidor: Recursos Altos" "$EMAIL_TO"
-    fi
-    
+}
+
+check_limit "$CPU_NOW"  "$CPU_MAX"  "CPU ALTA"
+check_limit "$RAM_NOW"  "$RAM_MAX"  "RAM ALTA"
+check_limit "$DISK_NOW" "$DISK_MAX" "DISCO ALTO"
+
+# ==========================
+#   ACCIONES SEGÚN ESTADO
+# ==========================
+if [ "$TRIGGER" -eq 1 ]; then
+    echo -e "${C_RED}ALERTA: $ALERT${C_NONE}"
+    echo "$TIMESTAMP - ALERTA: $ALERT" >> "$LOG_ALERTS"
+
+    # Notificación webhook
+    [ -n "$WEBHOOK" ] && curl -X POST -H 'Content-Type: application/json' \
+        --data "{\"content\":\" **ALERTA DE SERVIDOR:** $ALERT\"}" "$WEBHOOK"
+
+    # Correo
+    [ -n "$EMAIL" ] && echo "ALERTA: $ALERT" | mail -s " Alerta del Servidor" "$EMAIL"
+
 else
-    echo -e "${GREEN}OK: $CURRENT_METRICS${NC}"
+    echo -e "${C_GREEN}OK: $METRIC_LINE${C_NONE}"
 fi
 
 exit 0
+
