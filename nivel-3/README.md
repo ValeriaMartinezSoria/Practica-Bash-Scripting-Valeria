@@ -9,7 +9,7 @@ Script que automatiza el despliegue de una aplicación web usando Git y Nginx.
 - (Opcional) Envía notificaciones via Webhook.
 - Maneja errores y detiene el despliegue si algo falla.
 
-## 📦 Requisitos
+##  Requisitos
 ```bash
 sudo pacman -S git nginx curl
 Configurar Nginx para apuntar a /srv/http/clash-of-clan y habilitarlo:
