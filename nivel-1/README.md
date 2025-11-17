@@ -30,6 +30,8 @@ fi
 
 echo "[$TIMESTAMP] Servicio: $SERVICE_NAME, Estado: $RESULTADO" >> "$LOG_FILE"
 
+---
+
 Uso Rápido
 chmod +x check_service.sh
 ./check_service.sh nginx
