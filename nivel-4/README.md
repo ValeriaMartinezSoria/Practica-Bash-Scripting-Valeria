@@ -1,14 +1,17 @@
-Monitor de Sistema en Bash (Nivel 4)
+#  Monitor de Sistema en Bash (Nivel 4)
 
-Script para medir CPU, RAM y Disco, generar alertas, enviar notificaciones y guardar un historial de métricas.
+Script para medir **CPU, RAM y Disco**, generar **alertas**, enviar **notificaciones** y guardar un **historial de métricas**.
 
-Requisitos
+---
 
-Instala mpstat:
+##  Requisitos
 
+Instalar `mpstat`:
+
+```bash
 sudo pacman -S sysstat
 
- Script monitor_system.sh
+Script monitor_system.sh:
 #!/bin/bash
 
 # Límites
@@ -62,15 +65,15 @@ fi
 
 exit 0
 
- Uso
+Uso
 chmod +x monitor_system.sh
 ./monitor_system.sh
 
-Logs
+ Logs generados
 
-alerts.log → Alertas
+alerts.log → Contiene las alertas registradas
 
-metrics_YYYYMMDD.log → Histórico diario
+metrics_YYYYMMDD.log → Histórico diario de métricas
 
  Automatizar con cron (cada 15 minutos)
 crontab -e
